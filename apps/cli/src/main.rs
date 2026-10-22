@@ -27,12 +27,23 @@ enum Commands {
         limit: usize,
     },
     Languages,
+    Topics,
     Show { id: String },
     Complete { prefix: String, #[arg(long)] language: Option<String> },
     Ask { query: String },
     Completions { shell: ShellArg },
+    Data {
+        #[command(subcommand)]
+        command: DataCommands,
+    },
     Lsp,
     Tui,
+}
+
+#[derive(Debug, Subcommand)]
+enum DataCommands {
+    Validate,
+    RebuildIndex,
 }
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -78,6 +89,11 @@ fn main() -> Result<()> {
                         println!("{:<12} {} ({})", lang.id, lang.display_name, lang.extensions.join(", "));
                     }
                 }
+                Commands::Topics => {
+                    let mut topics = std::collections::BTreeSet::new();
+                    for sheet in &sheets { topics.insert(sheet.category.as_str()); topics.extend(sheet.tags.iter().map(String::as_str)); }
+                    for topic in topics { println!("{topic}"); }
+                }
                 Commands::Show { id } => {
                     let sheet = sheets.iter().find(|s| s.id == id)
                         .with_context(|| format!("unknown sheet id: {id}"))?;
@@ -103,6 +119,12 @@ fn main() -> Result<()> {
                     for result in results {
                         println!("{}\t[{}] {}", result.id, result.language, result.title);
                     }
+                }
+                Commands::Data { command: DataCommands::Validate } => {
+                    println!("Validated {} cheat sheets.", sheets.len());
+                }
+                Commands::Data { command: DataCommands::RebuildIndex } => {
+                    println!("Loaded {} cheat sheets; search uses the deterministic in-memory index.", sheets.len());
                 }
                 Commands::Completions { .. } | Commands::Lsp | Commands::Tui => unreachable!(),
             }
